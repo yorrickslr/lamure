@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Converter Output Test</title>
+  <meta charset="utf-8">
+  <script>
+    function decodeBinary(buffer) {
+      return new Promise((resolve, reject) => {
+        let length = buffer.byteLength - 28;
+        if(length < 0) {
+          reject(new Error("file does not contain header."))
+        }
+        if(length % 40 != 0) {
+          reject(new Error("received corrupted message."));
+        }
+        // decode header
+        result = {
+          depth: new Uint32Array(buffer.slice(0, 4))[0],
+          prims_per_node: new Uint32Array(buffer.slice(4, 8))[0],
+          fanout_factor: new Uint32Array(buffer.slice(8, 12))[0],
+          num_nodes: new Uint32Array(buffer.slice(12, 16))[0],
+          translation: new Float32Array(buffer.slice(16, 28))
+        }
+        // decode nodes
+        result.nodes = [];
+        let count = length / 40;
+        let pos = 28;
+        for(let i = 0; i < count; i++) {
+          let node = {
+            bb_min: new Float32Array(buffer.slice(pos, pos + 12)),
+            bb_max: new Float32Array(buffer.slice(pos + 12, pos + 24)),
+            centroid: new Float32Array(buffer.slice(pos + 24, pos + 36)),
+            radius: new Float32Array(buffer.slice(pos + 36, pos + 40))[0]
+          }
+          result.nodes.push(node);
+          pos += 40;
+        }
+        if(result.num_nodes != result.nodes.length) {
+          console.warning("header file property 'num_nodes' and length of 'nodes' do not match!");
+        }
+        resolve(result);
+      });
+    }
+    window.addEventListener("DOMContentLoaded", () =>  {
+      fetch("pig.y").then(response => {
+        response.arrayBuffer().then(decodeBinary).then(data => {
+          console.log(data);
+          document.body.textContent += "loaded\n";
+        }).catch(e => {
+          console.error(e);
+        });
+      }).catch(e => {
+        console.error(e);
+      });
+    });
+  </script>
+</head>
+<body>
+</body>
+</html>
